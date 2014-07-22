@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<classpath>
+	<classpathentry kind="src" path="src"/>
+	<classpathentry kind="src" path="db.script"/>
+	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER/org.eclipse.jdt.internal.debug.ui.launcher.StandardVMType/JavaSE-1.7"/>
+	<classpathentry kind="lib" path="D:/개인개발/kms/baas_test_workspace/propose/lib/commons-beanutils-1.9.2.jar"/>
+	<classpathentry kind="lib" path="D:/개인개발/kms/baas_test_workspace/propose/lib/commons-collections-3.2.1.jar"/>
+	<classpathentry kind="lib" path="D:/개인개발/kms/baas_test_workspace/propose/lib/commons-lang-2.6.jar"/>
+	<classpathentry kind="lib" path="D:/개인개발/kms/baas_test_workspace/propose/lib/commons-logging-1.2.jar"/>
+	<classpathentry kind="lib" path="D:/개인개발/kms/baas_test_workspace/propose/lib/ezmorph-1.0.6.jar"/>
+	<classpathentry kind="lib" path="D:/개인개발/kms/baas_test_workspace/propose/lib/json-lib-2.4-jdk15.jar"/>
+	<classpathentry kind="lib" path="D:/개인개발/kms/baas_test_workspace/propose/lib/JDBC-9.0.0.0478-cubrid.jar"/>
+	<classpathentry kind="lib" path="D:/개인개발/kms/baas_test_workspace/propose/lib/mysql-connector-java-5.1.31-bin.jar"/>
+	<classpathentry kind="lib" path="D:/개인개발/kms/baas_test_workspace/propose/lib/ojdbc14.jar"/>
+	<classpathentry kind="output" path="bin"/>
+</classpath>
