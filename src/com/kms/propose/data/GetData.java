@@ -61,7 +61,7 @@ public class GetData extends KmsDbApi{
 				else{
 					if(1 == getCheckMember()){
 						updateMemberPushId();
-						insertLog();
+						//insertLog();
 					}
 				}
 			}
@@ -147,13 +147,19 @@ public class GetData extends KmsDbApi{
 				}
 			}
 			else if("buyItem".equals(select)){
-				if("".equals(deviceNumber) || "".equals(this.itemId)){
-					errorMsg("기기번호가 또는 선택한 아이템이 없습니다.");
+				if("".equals(myPhoneNumber) || "".equals(this.itemId)){
+					errorMsg("전화번호 또는 선택한 아이템이 없습니다.");
 				}
 				else{
-					int price =getItemPrice(); 
+					int price = getItemPrice(); 
 					if( price > 0){
-						
+						int myPoint = getMyPointInt();
+						if(price < myPoint){
+							errorMsg("포인트가 부족합니다.");
+						}
+						else{
+							buyItem();
+						}						
 					}
 					else{
 						errorMsg("아이템 정보가 잘못되었습니다.");
@@ -163,6 +169,7 @@ public class GetData extends KmsDbApi{
 			else{
 				errorMsg("요청된 값이 잘못되었습니다.");
 			}
+			insertLog();
 		}
 		catch(Exception e){
 			e.printStackTrace();
@@ -172,11 +179,23 @@ public class GetData extends KmsDbApi{
 		return obj.toString();
 	}
 	
+	public void buyItem(){
+		StringBuffer query = new StringBuffer();
+		query.append(" update propose.member k set k.member_point = k.member_point-(select item_price from propose.item where item_id='").append(itemId).append("') ");
+		query.append(" where k.member_phone='").append(myPhoneNumber).append("' ");
+		int cnt = super.executeUpdate(query.toString());
+		obj.put("pointminus", cnt);
+		query = new StringBuffer("");
+		query.append(" INSERT INTO `propose`.`memberItem` ( `use_flag`, `member_phone`, `item_id`, `start_date`) VALUES ");
+		query.append(" ('0', '01025003712', '").append(itemId).append("', now()) ");
+		cnt = super.executeUpdate(query.toString());
+		obj.put("itemInsert", cnt);
+	}
+	
 	public int getItemPrice(){
 		List list = new ArrayList();
 		int price =-1;
 		StringBuffer query = new StringBuffer();
-		query = new StringBuffer("");
 		query.append(" select item_price from propose.item ");
 		query.append(" where item_id='").append(itemId).append("' ");
 		list = super.executeQuery(query.toString());
@@ -311,6 +330,20 @@ public class GetData extends KmsDbApi{
 		}
 	}
 	
+	public int getMyPointInt(){	//내 포인트 가져오기
+		int point = 0;
+		List list = new ArrayList();
+		StringBuffer query = new StringBuffer();
+		query.append("SELECT member_point AS POINT FROM propose.member ");
+		query.append("WHERE member_phone ='").append(myPhoneNumber).append("'");
+		list = super.executeQuery(query.toString());	
+		for(int k=0; k<list.size(); k++){
+			Map map = (Map)list.get(k);
+			point = Integer.parseInt(String.valueOf(map.get("POINT")));
+		}
+		return point;
+	}
+	
 	public void getLoveCount(){	
 		List list = new ArrayList();
 		StringBuffer query = new StringBuffer();
@@ -393,8 +426,8 @@ public class GetData extends KmsDbApi{
 	
 	public void insertLog(){
 		StringBuffer query = new StringBuffer();
-		query.append(" INSERT INTO loginLog (member_phone, loginTime) ");	
-		query.append(" values ('").append(myPhoneNumber).append("', now() )");
+		query.append(" INSERT INTO loginLog (member_phone, loginTime, activity) ");	
+		query.append(" values ('").append(myPhoneNumber).append("', now(),'").append(select).append("' )");
 		super.executeUpdate(query.toString());
 	}
 	
