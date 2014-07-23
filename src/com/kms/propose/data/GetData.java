@@ -19,7 +19,8 @@ public class GetData extends KmsDbApi{
 	private String id;
 	private String select;
 	private String loveMsg;
-	
+	private String itemId;
+
 	public GetData(){
 		if(!super.MysqlConn("121.254.179.10", "3306", "propose", "kms", "kms1234")){
 			this.obj.put("eroor", "1");
@@ -87,8 +88,7 @@ public class GetData extends KmsDbApi{
 			}
 			else if("heartCount".equals(select)){
 				if("".equals(myPhoneNumber)){
-					obj.put("error","1");
-					obj.put("msg", "전화번호가 없습니다.");
+					errorMsg("전화번호가 없습니다.");
 				}
 				else{
 					getHeartCount();
@@ -97,14 +97,12 @@ public class GetData extends KmsDbApi{
 			}
 			else if("insertLoevMember".equals(select)){
 				if("".equals(myPhoneNumber) || "".equals(loveMemberPhone)){
-					obj.put("error","1");
-					obj.put("msg", "전화번호 및 상대전화번호가 없습니다.");
+					errorMsg("전화번호 및 상대전화번호가 없습니다.");
 				}
 				else{
 					if(getHeartCount() < 1){
-						obj.put("error","1");
 						obj.put("insertFlag","0");
-						obj.put("msg","하트가 없습니다.");
+						errorMsg("하트가 없습니다.");
 					}
 					else{
 						if("".equals(loveMsg)){
@@ -124,20 +122,17 @@ public class GetData extends KmsDbApi{
 			}
 			else if("cancelLove".equals(select)){
 				if("".equals(myPhoneNumber) || "".equals(loveMemberPhone)){
-					obj.put("error","1");
-					obj.put("msg", "전화번호 및 상대전화번호가 없습니다.");
+					errorMsg("전화번호 및 상대전화번호가 없습니다.");
 				}
 				else{
 					if(cancelLove() < 1){
-						obj.put("error","1");
-						obj.put("msg", "취소된 내역이 없습니다.");
+						errorMsg("취소된 내역이 없습니다.");
 					}
 				}
 			}
 			else if("appDelete".equals(select)){
 				if("".equals(myPhoneNumber)){
-					obj.put("error","1");
-					obj.put("msg", "전화번가 없습니다.");
+					errorMsg("전화번가 없습니다.");
 				}
 				else{
 					appDelete();
@@ -145,16 +140,28 @@ public class GetData extends KmsDbApi{
 			}
 			else if("getMyItem".equals(select)){
 				if("".equals(myPhoneNumber)){
-					obj.put("error","1");
-					obj.put("msg", "전화번가 없습니다.");
+					errorMsg("전화번가 없습니다.");
 				}
 				else{
 					getMyItemList();
 				}
 			}
+			else if("buyItem".equals(select)){
+				if("".equals(deviceNumber) || "".equals(this.itemId)){
+					errorMsg("기기번호가 또는 선택한 아이템이 없습니다.");
+				}
+				else{
+					int price =getItemPrice(); 
+					if( price > 0){
+						
+					}
+					else{
+						errorMsg("아이템 정보가 잘못되었습니다.");
+					}
+				}
+			}
 			else{
-				obj.put("errer","1");
-				obj.put("msg","요청된 값이 잘못되었습니다.");
+				errorMsg("요청된 값이 잘못되었습니다.");
 			}
 		}
 		catch(Exception e){
@@ -163,6 +170,21 @@ public class GetData extends KmsDbApi{
 			obj.put("msg", e.toString());
 		}
 		return obj.toString();
+	}
+	
+	public int getItemPrice(){
+		List list = new ArrayList();
+		int price =-1;
+		StringBuffer query = new StringBuffer();
+		query = new StringBuffer("");
+		query.append(" select item_price from propose.item ");
+		query.append(" where item_id='").append(itemId).append("' ");
+		list = super.executeQuery(query.toString());
+		for(int k=0;k<list.size();k++){
+			Map map = (Map)list.get(k);
+			price = Integer.parseInt(String.valueOf(map.get("ITEM_PRICE")));
+		}
+		return price;		
 	}
 	
 	public int cancelLove(){	
@@ -460,5 +482,12 @@ public class GetData extends KmsDbApi{
 
 	public void setLoveMsg(String loveMsg) {
 		this.loveMsg = loveMsg;
+	}
+	public String getItemId() {
+		return itemId;
+	}
+
+	public void setItemId(String itemId) {
+		this.itemId = itemId;
 	}
 }
