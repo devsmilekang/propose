@@ -109,7 +109,18 @@ public class GetData extends KmsDbApi{
 						obj.put("msg","하트가 없습니다.");
 					}
 					else{
-						insertLoevMember();
+						if("".equals(loveMsg)){
+							insertLoevMember();
+						}
+						else{
+							if(checkItem("2") > 0){
+								insertLoevMember();
+							}
+							else{
+								errorMsg("아이템이 부족합니다.");
+							}
+						}
+						
 					}
 				}
 			}
@@ -357,7 +368,7 @@ public class GetData extends KmsDbApi{
 	
 	public void insertLoevMember() {
 		StringBuffer query = new StringBuffer();
-		query.append(" INSERT INTO loveMember (member_phone, member_love_phone,heart_flag,heart_send_time,loveMsg ) values ( ");
+		query.append(" INSERT INTO loveMember (member_phone, member_love_phone,loveMsg,heart_flag,heart_send_time ) values ( ");
 		query.append(" '").append(myPhoneNumber).append("'");
 		query.append(",'").append(loveMemberPhone).append("'");
 		query.append(",'").append(loveMsg).append("'");
@@ -369,11 +380,26 @@ public class GetData extends KmsDbApi{
 		query.append(" where member_phone='").append(myPhoneNumber).append("'");
 		cnt = super.executeUpdate(query.toString());
 		obj.put("updateFlag", cnt);
+		if(!"".equals(loveMsg)){
+			query = new StringBuffer("");
+			//qeury.append("update ")
+			//query.append("update )
+		}
+	}
+	
+	public int checkItem(String itemId){
+		List list = new ArrayList();
+		StringBuffer query = new StringBuffer();
+		query.append(" SELECT item_id FROM propose.memberItem ");
+		query.append(" WHERE member_phone='").append(myPhoneNumber).append("' ");
+		query.append(" AND item_id='").append(itemId).append("' and use_flag='0' ");
+		list = super.executeQuery(query.toString());
+		return list.size();
 	}
 	
 	public void errorMsg(String msg){
-		obj.put("errer","1");
-		obj.put("msg",msg);
+		obj.put("error","1");
+		obj.put("msg", msg);
 	}
 	
 	public void setMyPhoneNumber(String myPhoneNumber) {
