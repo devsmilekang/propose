@@ -3,6 +3,7 @@ package com.kms.propose.data;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 
 import net.sf.json.JSONArray;
 import net.sf.json.JSONObject;
@@ -20,6 +21,8 @@ public class GetData extends KmsDbApi{
 	private String select;
 	private String loveMsg;
 	private String itemId;
+	private String memberSession;
+	private String point;
 
 	public GetData(){
 		if(!super.MysqlConn("121.254.179.10", "3306", "propose", "kms", "kms1234")){
@@ -36,11 +39,12 @@ public class GetData extends KmsDbApi{
 					obj.put("error","1");
 					obj.put("msg", "내 전화번호가 없습니다.");
 				}
-				else{ 
+				else{
 					getLoveCount();		//내가 여지껏 받은 하트 개순
 					getMyPoint();		//내 포인트 가져오기
 					getHeartList();		//하트 리스트 가져오기		
 					getMainHeartCount();
+					obj.put("error","0");
 				}
 			}
 			else if("sendHeart".equals(select)){
@@ -51,6 +55,7 @@ public class GetData extends KmsDbApi{
 				else{
 					getMyPoint();	//내 포인트 가져오기
 					getHeartList("0"); //내가 하트를 보낸 사람
+					obj.put("error","0");
 				}
 			}
 			else if("checkMember".equals(select)) {
@@ -61,6 +66,7 @@ public class GetData extends KmsDbApi{
 				else{
 					if(1 == getCheckMember()){
 						updateMemberPushId();
+						obj.put("error","0");
 						//insertLog();
 					}
 				}
@@ -81,8 +87,8 @@ public class GetData extends KmsDbApi{
 						obj.put("msg", "이미 아이디가 있습니다.");
 					}
 					else{
-						obj.put("error","0");
 						insertMember();
+						obj.put("error","0");
 					}
 				}			
 			}
@@ -93,6 +99,7 @@ public class GetData extends KmsDbApi{
 				else{
 					getHeartCount();
 					getHeartTime();
+					obj.put("error","0");
 				}
 			}
 			else if("insertLoevMember".equals(select)){
@@ -107,10 +114,12 @@ public class GetData extends KmsDbApi{
 					else{
 						if("".equals(loveMsg)){
 							insertLoevMember();
+							obj.put("error","0");
 						}
 						else{
 							if(checkItemCnt("2") > 0){
 								insertLoevMember();
+								obj.put("error","0");
 							}
 							else{
 								errorMsg("아이템 부족합니다.");
@@ -136,6 +145,7 @@ public class GetData extends KmsDbApi{
 				}
 				else{
 					appDelete();
+					obj.put("error","0");
 				}
 			}
 			else if("getMyItem".equals(select)){
@@ -143,22 +153,29 @@ public class GetData extends KmsDbApi{
 					errorMsg("전화번가 없습니다.");
 				}
 				else{
-					getMyItemList();
+					//getMyItemList();
+					getMyItemCount();
+					getMyPoint();
+					obj.put("error","0");
 				}
 			}
-			else if("buyItem".equals(select)){
-				if("".equals(myPhoneNumber) || "".equals(this.itemId)){
-					errorMsg("전화번호 또는 선택한 아이템이 없습니다.");
+			else if("buyItem".equals(select)){		//아이템 구매
+				if("".equals(myPhoneNumber) || "".equals(this.itemId) || "".equals(memberSession)){
+					errorMsg("전화번호 또는 선택한 아이템 또는 세션값이 없습니다.");
 				}
 				else{
 					int price = getItemPrice(); 
 					if( price > 0){
 						int myPoint = getMyPointInt();
-						if(price < myPoint){
+						if(price > myPoint){
 							errorMsg("포인트가 부족합니다.");
+						}
+						else if(!checkSession()){
+							errorMsg("세션값이 맞지 않습니다.");
 						}
 						else{
 							buyItem();
+							obj.put("error","0");
 						}						
 					}
 					else{
@@ -166,17 +183,140 @@ public class GetData extends KmsDbApi{
 					}
 				}
 			}
+			else if("buyPoint".equals(select)){		//아이템 구매
+				if("".equals(myPhoneNumber) || "".equals(memberSession)){
+					errorMsg("전화번호 또는 세션값이 없습니다.");
+				}
+				else{
+					if(!checkSession()){
+						errorMsg("세션값이 맞지 않습니다.");
+					}
+					else{
+						if("".equals(point)){
+							errorMsg("포인트 값 부족");
+						}
+						else{
+							buyPoint();
+							obj.put("error","0");
+						}						
+					}			
+				}
+			}
+			else if("getSession".equals(select)){
+				if("".equals(myPhoneNumber)){
+					errorMsg("전화번호가 없습니다.");
+				}
+				else{
+					getSession();
+					obj.put("error","0");
+				}				
+			}			
 			else{
 				errorMsg("요청된 값이 잘못되었습니다.");
 			}
-			insertLog();
+			if("0".equals(obj.get("error"))){
+				insertLog();
+			}
+			else{
+				select = select.concat("(").concat(obj.getString("msg")).concat(")");
+				insertLog();
+			}
+			
 		}
 		catch(Exception e){
 			e.printStackTrace();
 			obj.put("error", "1");
 			obj.put("msg", e.toString());
+			select = select.concat("(").concat(obj.getString("msg")).concat(")");
+			insertLog();
 		}
 		return obj.toString();
+	}
+	
+	public void buyPoint(){
+		String session = "";
+		List list = new ArrayList();
+		StringBuffer query = new StringBuffer();
+		query.append(" update propose.member set member_point = member_point+").append(point);
+		query.append(" where member_phone='").append(myPhoneNumber).append("' ");
+		int cnt = super.executeUpdate(query.toString());
+		obj.put("updateFlag", cnt);
+		getUpdateSession();		
+	}
+	
+	public boolean checkSession(){
+		String session = "";
+		List list = new ArrayList();
+		StringBuffer query = new StringBuffer();
+		query.append(" select memberSession from propose.member ");
+		query.append(" where member_phone='").append(myPhoneNumber).append("' ");
+		query.append(" and memberSession='").append(memberSession).append("' ");
+		list = super.executeQuery(query.toString());
+		if(list.size() > 0){
+			return true;
+		}
+		else{
+			return false;
+		}
+	}
+	
+	public void getSession(){
+		getUpdateSession();
+		String session = "";
+		List list = new ArrayList();
+		StringBuffer query = new StringBuffer();
+		query.append(" select memberSession from propose.member ");
+		query.append(" where member_phone='").append(myPhoneNumber).append("' ");
+		list = super.executeQuery(query.toString());
+		for(int k=0; k<list.size(); k++){
+			Map map = (Map)list.get(k);
+			session = String.valueOf(map.get("MEMBERSESSION"));
+		}
+		obj.put("se", encodingSession(session));
+		//obj.put("itemInsert", cnt);
+	}
+	
+	public String encodingSession(String session){
+		String encodingSession = "";
+		for(int k=0; k<session.length(); k++){
+			int key = 3-(k%3);
+			char c = session.charAt(k);
+			int i = c+key;
+			c = (char)i;
+			encodingSession += c; 
+		}
+		return encodingSession;
+	}
+	
+	public String decodingSession(String session){
+		String decodingSession = "";
+		for(int k=0; k<session.length(); k++){
+			int key = (k%3)-3;
+			char c = session.charAt(k);
+			int i = c+key;
+			c = (char)i;
+			decodingSession += c; 
+		}
+		return decodingSession;
+	}
+	
+	public void getUpdateSession(){
+		Random random = new Random();
+		StringBuffer query = new StringBuffer();
+		query.append(" update propose.member set memberSession='").append(createSession()).append("' ");
+		query.append(" where member_phone='").append(myPhoneNumber).append("' ");
+		int cnt = super.executeUpdate(query.toString());
+		obj.put("changeSession", cnt);
+	}
+	
+	public String createSession(){
+		Random random = new Random();
+		String session = "";
+		for(int k=0; k<60; k++){
+			int ran = random.nextInt(10);
+			session = session.concat(String.valueOf(ran));
+		}
+		return session;		
 	}
 	
 	public void buyItem(){
@@ -187,9 +327,10 @@ public class GetData extends KmsDbApi{
 		obj.put("pointminus", cnt);
 		query = new StringBuffer("");
 		query.append(" INSERT INTO `propose`.`memberItem` ( `use_flag`, `member_phone`, `item_id`, `start_date`) VALUES ");
-		query.append(" ('0', '01025003712', '").append(itemId).append("', now()) ");
+		query.append(" ('0','").append(myPhoneNumber).append("','").append(itemId).append("', now()) ");
 		cnt = super.executeUpdate(query.toString());
 		obj.put("itemInsert", cnt);
+		getUpdateSession();
 	}
 	
 	public int getItemPrice(){
@@ -266,6 +407,26 @@ public class GetData extends KmsDbApi{
 			data.put("itemName", map.get("ITEM_NAME"));
 			data.put("memberPhone", map.get("MEMBER_PHONE"));
 			data.put("startDate", map.get("START_DATE"));
+			jsonArr.add(data);
+		}
+		obj.put("myItemList", jsonArr);
+	}
+	
+	public void getMyItemCount(){
+		List list = new ArrayList();
+		StringBuffer query = new StringBuffer();
+		query = new StringBuffer("");
+		query.append(" select item_id, COUNT(*) as cnt from propose.memberItem ");
+		query.append(" where member_phone='").append(myPhoneNumber).append("' ");
+		query.append(" and use_flag='0' ");
+		query.append(" group by item_id ");
+		list = super.executeQuery(query.toString());	
+		JSONArray jsonArr = new JSONArray();
+		for(int k=0; k<list.size(); k++){
+			Map map = (Map)list.get(k);
+			JSONObject data = new JSONObject();
+			data.put("itemId", map.get("ITEM_ID"));
+			data.put("count", map.get("CNT"));			
 			jsonArr.add(data);
 		}
 		obj.put("myItemList", jsonArr);
@@ -523,4 +684,20 @@ public class GetData extends KmsDbApi{
 	public void setItemId(String itemId) {
 		this.itemId = itemId;
 	}
+	public String getMemberSession() {
+		return memberSession;
+	}
+
+	public void setMemberSession(String memberSession) {
+		this.memberSession = memberSession;
+	}
+	
+	public String getPoint() {
+		return point;
+	}
+
+	public void setPoint(String point) {
+		this.point = point;
+	}
+
 }
