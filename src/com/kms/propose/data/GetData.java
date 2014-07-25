@@ -602,11 +602,11 @@ public class GetData extends KmsDbApi{
 	
 	public void insertMember() {
 		StringBuffer query = new StringBuffer();
-		query.append(" INSERT INTO member (member_phone, deviceNumber,pushId, id, member_point) values ( ");
+		query.append(" INSERT INTO member (member_phone, deviceNumber,pushId, id, member_point, chargedCheck) values ( ");
 		query.append(" '").append(myPhoneNumber).append("'");
 		query.append(",'").append(deviceNumber).append("'");
 		query.append(",'").append(pushId).append("'");
-		query.append(",'").append(id).append(" ','0') ");
+		query.append(",'").append(id).append(" ','0',now()) ");
 		int cnt = super.executeUpdate(query.toString());
 		obj.put("insertData", cnt);
 		obj.put("insertFlag", "1");
@@ -630,7 +630,7 @@ public class GetData extends KmsDbApi{
 			query.append(" , (select count(*) as id0_cnt,member_phone,item_id from propose.memberItem where item_id='0' and use_flag='0')  ");
 			query.append(" s where k.member_phone = m.member_phone and k.member_phone=m.member_phone ) m where m.member_phone = k.member_phone ");
 			query.append(" and m.item_id=k.item_id and k.use_flag='0' ");
-			query.append(" and k.member_phone='").append(myPhoneNumber).append("' limit 0,1 ) c set a.use_flag='1'  where a.memberItemid = c.memberItemid ");
+			query.append(" and k.member_phone='").append(myPhoneNumber).append("' limit 0,1 ) c set a.use_flag='1', a.end_date=now()  where a.memberItemid = c.memberItemid ");
 		}
 		else if("free".equals(flag)){ //무료하트
 			query.append(" update member set heartCount=heartCount-1 ");		//하트감소
