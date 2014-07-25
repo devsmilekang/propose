@@ -23,6 +23,7 @@ public class GetData extends KmsDbApi{
 	private String itemId;
 	private String memberSession;
 	private String point;
+	private String flag;
 
 	public GetData(){
 		if(!super.MysqlConn("121.254.179.10", "3306", "propose", "kms", "kms1234")){
@@ -99,33 +100,40 @@ public class GetData extends KmsDbApi{
 				else{
 					getHeartCount();
 					getHeartTime();
+					getMyItemCount();
 					obj.put("error","0");
 				}
 			}
 			else if("insertLoevMember".equals(select)){
-				if("".equals(myPhoneNumber) || "".equals(loveMemberPhone)){
+				if("".equals(myPhoneNumber) || "".equals(loveMemberPhone) || "".equals(flag)){
 					errorMsg("전화번호 및 상대전화번호가 없습니다.");
 				}
 				else{
-					if(getHeartCount() < 1){
+					if(getHeartCount() < 1 && "free".equals(flag)){
 						obj.put("insertFlag","0");
 						errorMsg("하트가 없습니다.");
 					}
 					else{
-						if("".equals(loveMsg)){
-							insertLoevMember();
-							obj.put("error","0");
-						}
-						else{
-							if(checkItemCnt("2") > 0){
-								insertLoevMember();
-								obj.put("error","0");
+						if("charged".equals(flag) || "free".equals(flag)){
+							if("".equals(loveMsg)){
+								if(insertLoevMember()){
+									obj.put("error","0");
+								}								
 							}
 							else{
-								errorMsg("아이템 부족합니다.");
+								if(checkItemCnt("2") > 0){
+									if(insertLoevMember()){
+										obj.put("error","0");
+									}									
+								}
+								else{
+									errorMsg("아이템 부족합니다.");
+								}
 							}
 						}
-						
+						else{
+							errorMsg("플래그 값이 없습니다.");
+						}
 					}
 				}
 			}
@@ -604,32 +612,64 @@ public class GetData extends KmsDbApi{
 		obj.put("insertFlag", "1");
 	}
 	
-	public void insertLoevMember() {
+	public boolean insertLoevMember() {
 		StringBuffer query = new StringBuffer();
-		query.append(" INSERT INTO loveMember (member_phone, member_love_phone,loveMsg,heart_flag,heart_send_time ) values ( ");
-		query.append(" '").append(myPhoneNumber).append("'");
-		query.append(",'").append(loveMemberPhone).append("'");
-		query.append(",'").append(loveMsg).append("'");
-		query.append(",'0',now()) ");
-		int cnt = super.executeUpdate(query.toString());
-		obj.put("insertFlag", cnt);
-		query = new StringBuffer("");
-		query.append(" update member set heartCount=heartCount-1 ");		//하트감소
-		query.append(" where member_phone='").append(myPhoneNumber).append("'");
-		cnt = super.executeUpdate(query.toString());
-		obj.put("updateFlag", cnt);
-		if(!"".equals(loveMsg)){		//Msg 있으면 아이템 사용
-			query = new StringBuffer("");
-			query.append(" update propose.memberItem a, ");
-			query.append(" (select * from propose.memberItem k where k.memberItemId = ");
-			query.append(" (select memberItemId from propose.memberItem where use_flag='0' ");
-			query.append(" and item_id='2' ");
-			query.append(" and member_phone='").append(myPhoneNumber).append("' ");
-			query.append(" limit 0,1)) b ");
-			query.append(" set a.use_flag='1', a.end_date=now() ");
-			query.append(" where a.memberItemId = b.memberItemId ");
-			super.executeUpdate(query.toString());
+		
+		if("charged".equals(flag)){	//유료하트
+			/*
+			 * update propose.memberItem a, ( select k.memberItemid, k.member_phone from propose.memberItem k,
+				 (select  case when m.id1_cnt > 0 then 1 else 0 end as item_id, k.member_phone from propose.member k,
+				 ( select count(*) as id1_cnt,member_phone,item_id from propose.memberItem where item_id='1' and use_flag='0') m
+				, (select count(*) as id0_cnt,member_phone,item_id from propose.memberItem where item_id='0' and use_flag='0') 
+				s where k.member_phone = m.member_phone and k.member_phone=m.member_phone ) m where m.member_phone = k.member_phone
+				 and m.item_id=k.item_id and k.use_flag='0' limit 0,1 ) c set a.use_flag='1'  where a.memberItemid = c.memberItemid	;
+			 */
+			query.append(" update propose.memberItem a, ( select k.memberItemid, k.member_phone from propose.memberItem k, ");
+			query.append(" (select  case when m.id1_cnt > 0 then 1 else 0 end as item_id, k.member_phone from propose.member k, ");
+			query.append(" ( select count(*) as id1_cnt,member_phone,item_id from propose.memberItem where item_id='1' and use_flag='0') m ");
+			query.append(" , (select count(*) as id0_cnt,member_phone,item_id from propose.memberItem where item_id='0' and use_flag='0')  ");
+			query.append(" s where k.member_phone = m.member_phone and k.member_phone=m.member_phone ) m where m.member_phone = k.member_phone ");
+			query.append(" and m.item_id=k.item_id and k.use_flag='0' ");
+			query.append(" and k.member_phone='").append(myPhoneNumber).append("' limit 0,1 ) c set a.use_flag='1'  where a.memberItemid = c.memberItemid ");
 		}
+		else if("free".equals(flag)){ //무료하트
+			query.append(" update member set heartCount=heartCount-1 ");		//하트감소
+			query.append(" where member_phone='").append(myPhoneNumber).append("'");
+		}
+		else{
+			errorMsg("플래그 값이 일치하지 않습니다.");
+			return false;
+		}
+		//무료하트
+		int cnt = super.executeUpdate(query.toString());
+		obj.put("updateFlag", cnt);
+		if(cnt >0){
+			query = new StringBuffer("");
+			query.append(" INSERT INTO loveMember (member_phone, member_love_phone,loveMsg,heart_flag,heart_send_time ) values ( ");
+			query.append(" '").append(myPhoneNumber).append("'");
+			query.append(",'").append(loveMemberPhone).append("'");
+			query.append(",'").append(loveMsg).append("'");
+			query.append(",'0',now()) ");
+			cnt = super.executeUpdate(query.toString());
+			obj.put("insertFlag", cnt);		
+			if(!"".equals(loveMsg)){		//Msg 있으면 아이템 사용
+				query = new StringBuffer("");
+				query.append(" update propose.memberItem a, ");
+				query.append(" (select * from propose.memberItem k where k.memberItemId = ");
+				query.append(" (select memberItemId from propose.memberItem where use_flag='0' ");
+				query.append(" and item_id='2' ");
+				query.append(" and member_phone='").append(myPhoneNumber).append("' ");
+				query.append(" limit 0,1)) b ");
+				query.append(" set a.use_flag='1', a.end_date=now() ");
+				query.append(" where a.memberItemId = b.memberItemId ");
+				super.executeUpdate(query.toString());
+			}
+		}
+		else{
+			errorMsg("아이템이 없습니다.");
+			return false;
+		}
+		return true;
 	}
 	
 	public int checkItemCnt(String itemId){
@@ -698,6 +738,14 @@ public class GetData extends KmsDbApi{
 
 	public void setPoint(String point) {
 		this.point = point;
+	}
+	
+	public String getFlag() {
+		return flag;
+	}
+
+	public void setFlag(String flag) {
+		this.flag = flag;
 	}
 
 }
