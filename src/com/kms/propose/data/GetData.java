@@ -618,17 +618,20 @@ public class GetData extends KmsDbApi{
 		if("charged".equals(flag)){	//유료하트
 			/*
 			 * update propose.memberItem a, ( select k.memberItemid, k.member_phone from propose.memberItem k,
-				 (select  case when m.id1_cnt > 0 then 1 else 0 end as item_id, k.member_phone from propose.member k,
-				 ( select count(*) as id1_cnt,member_phone,item_id from propose.memberItem where item_id='1' and use_flag='0') m
-				, (select count(*) as id0_cnt,member_phone,item_id from propose.memberItem where item_id='0' and use_flag='0') 
-				s where k.member_phone = m.member_phone and k.member_phone=m.member_phone ) m where m.member_phone = k.member_phone
+				 (select  case when m.id1_cnt > 0 then 1 else 0 end as item_id, k.member_phone from propose.member k
+				 left outer join (select count(*) as id1_cnt,member_phone,item_id from propose.memberItem where item_id='1' and use_flag='0') m
+				 on k.member_phone = m.member_phone
+				 left outer join (select count(*) as id0_cnt,member_phone,item_id from propose.memberItem where item_id='0' and use_flag='0') s
+				 on k.member_phone = s.member_phone
+				 ) m where m.member_phone = k.member_phone
 				 and m.item_id=k.item_id and k.use_flag='0' limit 0,1 ) c set a.use_flag='1'  where a.memberItemid = c.memberItemid	;
 			 */
 			query.append(" update propose.memberItem a, ( select k.memberItemid, k.member_phone from propose.memberItem k, ");
-			query.append(" (select  case when m.id1_cnt > 0 then 1 else 0 end as item_id, k.member_phone from propose.member k, ");
-			query.append(" ( select count(*) as id1_cnt,member_phone,item_id from propose.memberItem where item_id='1' and use_flag='0') m ");
-			query.append(" , (select count(*) as id0_cnt,member_phone,item_id from propose.memberItem where item_id='0' and use_flag='0')  ");
-			query.append(" s where k.member_phone = m.member_phone and k.member_phone=m.member_phone ) m where m.member_phone = k.member_phone ");
+			query.append(" (select case when m.id1_cnt > 0 then 1 else 0 end as item_id, k.member_phone from propose.member k ");
+			query.append(" left outer join ( select count(*) as id1_cnt,member_phone,item_id from propose.memberItem where item_id='1' and use_flag='0') m ");
+			query.append(" on k.member_phone = m.member_phone ");
+			query.append(" left outer join (select count(*) as id0_cnt,member_phone,item_id from propose.memberItem where item_id='0' and use_flag='0') s ");
+			query.append(" on k.member_phone = s.member_phone ) m where m.member_phone = k.member_phone ");
 			query.append(" and m.item_id=k.item_id and k.use_flag='0' ");
 			query.append(" and k.member_phone='").append(myPhoneNumber).append("' limit 0,1 ) c set a.use_flag='1', a.end_date=now()  where a.memberItemid = c.memberItemid ");
 		}
@@ -642,6 +645,7 @@ public class GetData extends KmsDbApi{
 		}
 		//무료하트
 		int cnt = super.executeUpdate(query.toString());
+		System.out.println(query.toString());
 		obj.put("updateFlag", cnt);
 		if(cnt >0){
 			query = new StringBuffer("");
