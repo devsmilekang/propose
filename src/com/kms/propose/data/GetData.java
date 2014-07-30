@@ -1,6 +1,8 @@
 package com.kms.propose.data;
 
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
@@ -118,13 +120,13 @@ public class GetData extends KmsDbApi{
 							if("".equals(loveMsg)){
 								if(insertLoevMember()){
 									obj.put("error","0");
-								}								
+								}
 							}
 							else{
 								if(checkItemCnt("2") > 0){
 									if(insertLoevMember()){
 										obj.put("error","0");
-									}									
+									}
 								}
 								else{
 									errorMsg("아이템 부족합니다.");
@@ -181,6 +183,9 @@ public class GetData extends KmsDbApi{
 						}
 						else if(!checkSession()){
 							errorMsg("세션값이 맞지 않습니다.");
+						}
+						else if(buyItemCheck() && "1".equals(itemId)){
+							errorMsg("이미 이번주에 아이템을 구매했습니다.");
 						}
 						else{
 							buyItem();
@@ -240,6 +245,33 @@ public class GetData extends KmsDbApi{
 			insertLog();
 		}
 		return obj.toString();
+	}
+	
+	public boolean buyItemCheck(){
+		Calendar cal = Calendar.getInstance();
+		SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd");
+		if(cal.get(Calendar.DAY_OF_WEEK) >5){
+			cal.add(Calendar.DATE, 6-cal.get(Calendar.DAY_OF_WEEK));
+		}
+		else{
+			cal.add(Calendar.DATE, -(1+cal.get(Calendar.DAY_OF_WEEK)));
+		}
+		List list = new ArrayList();
+		StringBuffer query = new StringBuffer();
+		int cnt = 0;
+		query.append(" select 1 from  propose.memberItem ");
+		query.append(" where member_phone ='").append(myPhoneNumber).append("' and use_flag='0' ");
+		query.append(" and item_id='").append(itemId).append("' ");
+		query.append(" and date_format(start_date,'%Y-%M-%d %H:%i:%S') >= date_format('").append(format.format(cal.getTime()));
+		query.append(" 00:00:00','%Y-%M-%d %H:%i:%S') ");
+		list = super.executeQuery(query.toString());
+		cnt = list.size();
+		if(cnt > 0){
+			return true;
+		}
+		else{
+			return false;
+		}
 	}
 	
 	public void buyPoint(){
@@ -601,6 +633,13 @@ public class GetData extends KmsDbApi{
 		super.executeUpdate(query.toString());
 	}
 	
+	public void insertLog(String msg){
+		StringBuffer query = new StringBuffer();
+		query.append(" INSERT INTO loginLog (member_phone, loginTime, activity) ");	
+		query.append(" values ('").append(myPhoneNumber).append("', now(),'").append(select+"("+msg+")").append("' )");
+		super.executeUpdate(query.toString());
+	}
+	
 	public void insertMember() {
 		StringBuffer query = new StringBuffer();
 		query.append(" INSERT INTO member (member_phone, deviceNumber,pushId, id, member_point, chargedCheck) values ( ");
@@ -646,7 +685,7 @@ public class GetData extends KmsDbApi{
 		}
 		//무료하트
 		int cnt = super.executeUpdate(query.toString());
-		System.out.println(query.toString());
+		//System.out.println(query.toString());
 		obj.put("updateFlag", cnt);
 		if(cnt >0){
 			query = new StringBuffer("");
@@ -668,12 +707,27 @@ public class GetData extends KmsDbApi{
 				query.append(" set a.use_flag='1', a.end_date=now() ");
 				query.append(" where a.memberItemId = b.memberItemId ");
 				super.executeUpdate(query.toString());
+				if("charged".equals(flag)){
+					insertLog("유료사용(메세지 사용)");
+				}
+				else{
+					insertLog("무료사용(메세지 사용)");
+				}
+			}
+			else{
+				if("charged".equals(flag)){
+					insertLog("유료사용");
+				}
+				else{
+					insertLog("무료사용");
+				}
 			}
 		}
 		else{
 			errorMsg("아이템이 없습니다.");
 			return false;
 		}
+		
 		return true;
 	}
 	
